@@ -2,7 +2,7 @@ module github.com/CodeSyncr/nimbus-tunnel
 
 go 1.26
 
-require github.com/CodeSyncr/nimbus v1.6.2-0.20260910135127-6a1d29b22c27
+require github.com/CodeSyncr/nimbus v1.6.2-0.20260910140539-70d7524b6ab8
 
 require (
 	github.com/gorilla/websocket v1.5.3 // indirect

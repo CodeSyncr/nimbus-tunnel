@@ -1,5 +1,5 @@
-github.com/CodeSyncr/nimbus v1.6.2-0.20260910135127-6a1d29b22c27 h1:o7FJQGeg0+V99OBSzNrY8wWfMAqEJsK24GQMDeobGBo=
-github.com/CodeSyncr/nimbus v1.6.2-0.20260910135127-6a1d29b22c27/go.mod h1:i8lp4LWbNFL0RU+Fa4SgdkfcrRXvarSSiBSetaSwqbY=
+github.com/CodeSyncr/nimbus v1.6.2-0.20260910140539-70d7524b6ab8 h1:h8y8P9j/b3NqC30J9s90o+0AFSwNXH2Lsv+E4ub5nz4=
+github.com/CodeSyncr/nimbus v1.6.2-0.20260910140539-70d7524b6ab8/go.mod h1:i8lp4LWbNFL0RU+Fa4SgdkfcrRXvarSSiBSetaSwqbY=
 github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/hashicorp/yamux v0.1.2 h1:XtB8kyFOyHXYVFnwT5C3+Bdo8gArse7j2AQ0DA0Uey8=
