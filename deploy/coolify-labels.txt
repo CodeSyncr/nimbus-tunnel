@@ -1,17 +1,20 @@
 # Coolify → nimbus-tunnel resource → Container Labels
 #
 # Replace the generated Traefik block with this (turn off "Readonly labels"
-# first). Coolify's generated rules do not work for a tunnel relay:
-# Host(`*.tunnel...`) never matches (Host has no wildcards) and the
-# "letsencrypt" resolver cannot issue a wildcard certificate.
+# first). Coolify's generated rules cannot work for a tunnel relay:
+# Host(`*.tunnel...`) never matches — Host() has no wildcards — and the
+# "letsencrypt" HTTP-challenge resolver cannot issue a wildcard certificate.
 #
-# Rules use Traefik v3 regex syntax. On Traefik v2 replace both HostRegexp
-# calls with: HostRegexp(`{sub:[a-z0-9-]+}.tunnel.nimbusgo.space`)
+# This server runs Docker Swarm, so Traefik reads the swarm provider:
+# the network label is traefik.swarm.network (not traefik.docker.network),
+# and Coolify places these under the service's deploy.labels for you.
 #
-# Network section of the resource: Ports Exposes = 3000, Port Mappings empty.
+# Resource → Network: Ports Exposes = 3000, Port Mappings empty.
 # No gzip middleware: compression buffers streamed (SSE) responses.
+#
+# Rules use Traefik v3 regex syntax (this server runs v3.7).
 traefik.enable=true
-traefik.docker.network=coolify
+traefik.swarm.network=coolify-overlay
 traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
 traefik.http.routers.tunnel-http.entryPoints=http
 traefik.http.routers.tunnel-http.rule=Host(`tunnel.nimbusgo.space`) || HostRegexp(`^[a-z0-9-]+\.tunnel\.nimbusgo\.space$`)

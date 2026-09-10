@@ -29,6 +29,11 @@ Ready-made configuration lives in [`deploy/`](deploy/):
 - [`deploy/coolify-proxy.yaml`](deploy/coolify-proxy.yaml): the server's Traefik proxy configuration (Servers → Proxy → Configuration) with a Cloudflare DNS-01 resolver for the wildcard certificate and no read timeout on long-lived connections. Paste your Cloudflare API token in place of `REPLACE_WITH_CLOUDFLARE_TOKEN`, save, restart the proxy.
 - [`deploy/coolify-labels.txt`](deploy/coolify-labels.txt): the container labels for the resource (replace the generated Traefik block; Coolify's `Host(\`*.…\`)` rule never matches and its resolver cannot issue wildcards).
 
+Both files target a Docker **Swarm** server (Traefik's swarm provider on the
+`coolify-overlay` network, service labels under `deploy.labels`). Neither file
+carries a top-level `name:` key: `docker stack deploy` validates against the
+Swarm compose schema, which rejects it.
+
 Steps:
 
 1. **DNS (Cloudflare, DNS-only / grey cloud):** `A tunnel -> server IP` and `A *.tunnel -> server IP`. Keep them unproxied: Cloudflare's free certificate does not cover a second-level wildcard, and proxying would time out long-lived tunnels.

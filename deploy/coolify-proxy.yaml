@@ -1,24 +1,30 @@
 # Coolify → Servers → <server> → Proxy → Configuration
 #
-# Your server's working Traefik configuration plus the lines marked TUNNEL:
-# a Cloudflare DNS-01 resolver (the only way Let's Encrypt issues the
-# *.tunnel.nimbusgo.space wildcard) and no read timeout on the entry points
-# so long-lived tunnel connections are not cut after 60 seconds.
+# This server runs Docker Swarm (Traefik's swarm provider, coolify-overlay
+# network, labels under deploy.labels), so this is that configuration plus
+# only the lines marked TUNNEL:
 #
-# Replace REPLACE_WITH_CLOUDFLARE_TOKEN with an API token that has
+#   * a Cloudflare DNS-01 resolver — the only way Let's Encrypt issues the
+#     *.tunnel.nimbusgo.space wildcard certificate;
+#   * no read timeout on the entry points, so long-lived tunnel connections
+#     are not cut after Traefik's 60-second default.
+#
+# Replace REPLACE_WITH_CLOUDFLARE_TOKEN with an API token holding
 # Zone → DNS → Edit on the nimbusgo.space zone, save, then Restart Proxy.
+#
+# NOTE: no top-level "name:" key. `docker stack deploy` validates against the
+# Swarm compose schema, which rejects it ("additional property 'name' is not
+# allowed"). Everything else matches the server's working configuration.
 networks:
-  coolify:
+  coolify-overlay:
     external: true
 services:
   traefik:
-    container_name: coolify-proxy
-    image: 'traefik:v3.6'
-    restart: unless-stopped
+    image: 'traefik:v3.7'
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     networks:
-      - coolify
+      - coolify-overlay
     ports:
       - '80:80'
       - '443:443'
@@ -32,7 +38,7 @@ services:
     volumes:
       - '/var/run/docker.sock:/var/run/docker.sock:ro'
       - '/data/coolify/proxy/:/traefik'
-    # TUNNEL: credentials for the Cloudflare DNS challenge
+    # TUNNEL: credentials for the Cloudflare DNS-01 challenge
     environment:
       - 'CF_DNS_API_TOKEN=REPLACE_WITH_CLOUDFLARE_TOKEN'
     command:
@@ -46,7 +52,7 @@ services:
       - '--entrypoints.https.http.encodequerysemicolons=true'
       - '--entryPoints.https.http2.maxConcurrentStreams=250'
       - '--entrypoints.https.http3'
-      # TUNNEL: keep long-lived tunnel connections open (Traefik v3 default is 60s)
+      # TUNNEL: keep long-lived tunnel connections open (default is 60s)
       - '--entrypoints.http.transport.respondingTimeouts.readTimeout=0'
       - '--entrypoints.https.transport.respondingTimeouts.readTimeout=0'
       - '--providers.file.directory=/traefik/dynamic/'
@@ -54,19 +60,23 @@ services:
       - '--certificatesresolvers.letsencrypt.acme.httpchallenge=true'
       - '--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=http'
       - '--certificatesresolvers.letsencrypt.acme.storage=/traefik/acme.json'
-      # TUNNEL: wildcard certificate via Cloudflare DNS
+      # TUNNEL: wildcard certificate for *.tunnel.nimbusgo.space
       - '--certificatesresolvers.cloudflare.acme.dnschallenge=true'
       - '--certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare'
       - '--certificatesresolvers.cloudflare.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53'
       - '--certificatesresolvers.cloudflare.acme.email=alok@alok.digital'
       - '--certificatesresolvers.cloudflare.acme.storage=/traefik/acme-cloudflare.json'
       - '--api.insecure=false'
-      - '--providers.docker=true'
-      - '--providers.docker.exposedbydefault=false'
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.traefik.entrypoints=http
-      - traefik.http.routers.traefik.service=api@internal
-      - traefik.http.services.traefik.loadbalancer.server.port=8080
-      - coolify.managed=true
-      - coolify.proxy=true
+      - '--providers.swarm.endpoint=unix:///var/run/docker.sock'
+      - '--providers.swarm.exposedbydefault=false'
+    deploy:
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.traefik.entrypoints=http
+        - traefik.http.routers.traefik.service=api@internal
+        - traefik.http.services.traefik.loadbalancer.server.port=8080
+        - coolify.managed=true
+        - coolify.proxy=true
+      placement:
+        constraints:
+          - node.role==manager
