@@ -24,32 +24,26 @@ HTTP/1.1, server-sent events and WebSocket upgrades pass through. Every response
 
 ## Deploying on Coolify
 
+Ready-made configuration lives in [`deploy/`](deploy/):
+
+- [`deploy/coolify-proxy.yaml`](deploy/coolify-proxy.yaml): the server's Traefik proxy configuration (Servers → Proxy → Configuration) with a Cloudflare DNS-01 resolver for the wildcard certificate and no read timeout on long-lived connections. Paste your Cloudflare API token in place of `REPLACE_WITH_CLOUDFLARE_TOKEN`, save, restart the proxy.
+- [`deploy/coolify-labels.txt`](deploy/coolify-labels.txt): the container labels for the resource (replace the generated Traefik block; Coolify's `Host(\`*.…\`)` rule never matches and its resolver cannot issue wildcards).
+
+Steps:
+
 1. **DNS (Cloudflare, DNS-only / grey cloud):** `A tunnel -> server IP` and `A *.tunnel -> server IP`. Keep them unproxied: Cloudflare's free certificate does not cover a second-level wildcard, and proxying would time out long-lived tunnels.
-2. **Service:** new Dockerfile application from this repository, port `3000`, domains `https://tunnel.nimbusgo.space` and `https://*.tunnel.nimbusgo.space`, env `NIMBUS_CLOUD_URL=https://nimbusgo.space`.
-3. **Wildcard certificate:** Let's Encrypt issues `*.tunnel.nimbusgo.space` only through a DNS challenge. Give the Coolify proxy a Cloudflare API token (Zone → DNS → Edit on the zone) as `CF_DNS_API_TOKEN` and a resolver:
+2. **Cloudflare API token:** profile → API Tokens → "Edit zone DNS" template, scoped to the nimbusgo.space zone.
+3. **Proxy:** apply `deploy/coolify-proxy.yaml` with the token, restart the proxy.
+4. **Resource:** Dockerfile application from this repository. Network: Ports Exposes `3000`, Port Mappings empty. Environment: `NIMBUS_CLOUD_URL=https://nimbusgo.space`. Container Labels: contents of `deploy/coolify-labels.txt`. Deploy.
 
-   ```yaml
-   certificatesResolvers:
-     cloudflare:
-       acme:
-         email: you@example.com
-         storage: /traefik/acme-cf.json
-         dnsChallenge:
-           provider: cloudflare
-           resolvers: ["1.1.1.1:53", "1.0.0.1:53"]
-   ```
+Verify:
 
-   then on the service's router labels:
+```sh
+curl https://tunnel.nimbusgo.space/healthz          # ok 0
+curl -I https://anything.tunnel.nimbusgo.space/      # valid certificate, 404 "Tunnel offline"
+```
 
-   ```
-   traefik.http.routers.<name>.tls.certresolver=cloudflare
-   traefik.http.routers.<name>.tls.domains[0].main=tunnel.nimbusgo.space
-   traefik.http.routers.<name>.tls.domains[0].sans=*.tunnel.nimbusgo.space
-   ```
-
-4. Remove any response or idle timeouts on that route; tunnels and streamed responses are long-lived.
-
-Verify with `curl https://tunnel.nimbusgo.space/healthz`, then `nimbus login` and `nimbus expose` from any project.
+Then `nimbus login` and `nimbus expose` from any project.
 
 ## Running locally
 

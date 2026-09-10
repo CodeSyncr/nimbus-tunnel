@@ -1,0 +1,27 @@
+# Coolify → nimbus-tunnel resource → Container Labels
+#
+# Replace the generated Traefik block with this (turn off "Readonly labels"
+# first). Coolify's generated rules do not work for a tunnel relay:
+# Host(`*.tunnel...`) never matches (Host has no wildcards) and the
+# "letsencrypt" resolver cannot issue a wildcard certificate.
+#
+# Rules use Traefik v3 regex syntax. On Traefik v2 replace both HostRegexp
+# calls with: HostRegexp(`{sub:[a-z0-9-]+}.tunnel.nimbusgo.space`)
+#
+# Network section of the resource: Ports Exposes = 3000, Port Mappings empty.
+# No gzip middleware: compression buffers streamed (SSE) responses.
+traefik.enable=true
+traefik.docker.network=coolify
+traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
+traefik.http.routers.tunnel-http.entryPoints=http
+traefik.http.routers.tunnel-http.rule=Host(`tunnel.nimbusgo.space`) || HostRegexp(`^[a-z0-9-]+\.tunnel\.nimbusgo\.space$`)
+traefik.http.routers.tunnel-http.middlewares=redirect-to-https
+traefik.http.routers.tunnel-http.service=tunnel
+traefik.http.routers.tunnel-https.entryPoints=https
+traefik.http.routers.tunnel-https.rule=Host(`tunnel.nimbusgo.space`) || HostRegexp(`^[a-z0-9-]+\.tunnel\.nimbusgo\.space$`)
+traefik.http.routers.tunnel-https.service=tunnel
+traefik.http.routers.tunnel-https.tls=true
+traefik.http.routers.tunnel-https.tls.certresolver=cloudflare
+traefik.http.routers.tunnel-https.tls.domains[0].main=tunnel.nimbusgo.space
+traefik.http.routers.tunnel-https.tls.domains[0].sans=*.tunnel.nimbusgo.space
+traefik.http.services.tunnel.loadbalancer.server.port=3000

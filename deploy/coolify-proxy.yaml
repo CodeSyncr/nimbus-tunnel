@@ -1,0 +1,76 @@
+# Coolify → Servers → <server> → Proxy → Configuration
+#
+# Complete Traefik proxy compose for a Coolify server that hosts the tunnel
+# relay. It is Coolify's stock v4 configuration plus the parts marked
+# "TUNNEL": a Cloudflare DNS-01 resolver (the only way Let's Encrypt issues
+# the *.tunnel.nimbusgo.space wildcard) and no read timeout on the entry
+# points, so long-lived tunnel connections are not cut after 60 seconds.
+#
+# Replace REPLACE_WITH_CLOUDFLARE_TOKEN with an API token that has
+# Zone → DNS → Edit on the nimbusgo.space zone, save, then Restart Proxy.
+# If your existing configuration differs (image tag, extra flags), keep
+# yours and copy only the TUNNEL lines across.
+networks:
+  coolify:
+    external: true
+
+services:
+  traefik:
+    container_name: coolify-proxy
+    image: 'traefik:v3.1'
+    restart: unless-stopped
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    networks:
+      - coolify
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+      - '8080:8080'
+    healthcheck:
+      test: 'wget -qO- http://localhost:80/ping || exit 1'
+      interval: 4s
+      timeout: 2s
+      retries: 5
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock:ro'
+      - '/data/coolify/proxy/:/traefik'
+    # TUNNEL: credentials for the DNS-01 challenge
+    environment:
+      - CF_DNS_API_TOKEN=REPLACE_WITH_CLOUDFLARE_TOKEN
+    command:
+      - '--ping=true'
+      - '--ping.entrypoint=http'
+      - '--api.dashboard=true'
+      - '--entrypoints.http.address=:80'
+      - '--entrypoints.https.address=:443'
+      - '--entrypoints.http.http.encodequerysemicolons=true'
+      - '--entryPoints.http.http2.maxConcurrentStreams=50'
+      - '--entrypoints.https.http.encodequerysemicolons=true'
+      - '--entryPoints.https.http2.maxConcurrentStreams=50'
+      - '--entrypoints.https.http3'
+      # TUNNEL: Traefik v3 cuts requests after 60s by default; tunnels and
+      # streamed responses need to stay open.
+      - '--entrypoints.http.transport.respondingTimeouts.readTimeout=0'
+      - '--entrypoints.https.transport.respondingTimeouts.readTimeout=0'
+      - '--providers.file.directory=/traefik/dynamic/'
+      - '--providers.file.watch=true'
+      - '--certificatesresolvers.letsencrypt.acme.httpchallenge=true'
+      - '--certificatesresolvers.letsencrypt.acme.storage=/traefik/acme.json'
+      - '--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=http'
+      # TUNNEL: wildcard certificate via Cloudflare DNS
+      - '--certificatesresolvers.cloudflare.acme.dnschallenge=true'
+      - '--certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare'
+      - '--certificatesresolvers.cloudflare.acme.dnschallenge.resolvers=1.1.1.1:53,1.0.0.1:53'
+      - '--certificatesresolvers.cloudflare.acme.email=alok@alok.digital'
+      - '--certificatesresolvers.cloudflare.acme.storage=/traefik/acme-cloudflare.json'
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik.entrypoints=http
+      - traefik.http.routers.traefik.service=api@internal
+      - traefik.http.services.traefik.loadbalancer.server.port=8080
+      - coolify.managed=true
+      - coolify.proxy=true
