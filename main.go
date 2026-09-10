@@ -17,6 +17,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -56,10 +57,18 @@ func main() {
 }
 
 // cloudAuthorizer asks Nimbus Cloud to resolve a CLI token into a Grant.
+//
+// The requested subdomain travels with the token: reservations live in the
+// cloud, because a name has to stay with an account between sessions and
+// this relay only knows what is connected right now.
 func cloudAuthorizer(cloud string) tunnel.Authorizer {
 	client := &http.Client{Timeout: 10 * time.Second}
-	return func(ctx context.Context, token string) (tunnel.Grant, error) {
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, cloud+"/api/v1/tunnel/authorize", nil)
+	return func(ctx context.Context, token, subdomain string) (tunnel.Grant, error) {
+		endpoint := cloud + "/api/v1/tunnel/authorize"
+		if subdomain != "" {
+			endpoint += "?subdomain=" + url.QueryEscape(subdomain)
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
 		if err != nil {
 			return tunnel.Grant{}, err
 		}
@@ -78,7 +87,10 @@ func cloudAuthorizer(cloud string) tunnel.Authorizer {
 				return tunnel.Grant{}, fmt.Errorf("bad grant from cloud: %w", err)
 			}
 			return g, nil
-		case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusPaymentRequired:
+		case resp.StatusCode >= 400 && resp.StatusCode < 500:
+			// The cloud decides why an agent is refused — expired token,
+			// unpaid plan, a name another account holds — and the CLI shows
+			// its wording, so pass status and message through untouched.
 			var payload struct {
 				Error string `json:"error"`
 			}
@@ -86,7 +98,7 @@ func cloudAuthorizer(cloud string) tunnel.Authorizer {
 			if payload.Error == "" {
 				payload.Error = tunnel.ErrUnauthorized.Error()
 			}
-			return tunnel.Grant{}, fmt.Errorf("%w: %s", tunnel.ErrUnauthorized, payload.Error)
+			return tunnel.Grant{}, &tunnel.AuthError{Status: resp.StatusCode, Message: payload.Error}
 		default:
 			return tunnel.Grant{}, fmt.Errorf("cloud answered %s", resp.Status)
 		}
