@@ -7,7 +7,6 @@
 #
 # Replace REPLACE_WITH_CLOUDFLARE_TOKEN with an API token that has
 # Zone → DNS → Edit on the nimbusgo.space zone, save, then Restart Proxy.
-name: coolify-proxy
 networks:
   coolify:
     external: true
