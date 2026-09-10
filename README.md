@@ -17,7 +17,7 @@ HTTP/1.1, server-sent events and WebSocket upgrades pass through. Every response
 | Variable | Default | Purpose |
 |---|---|---|
 | `TUNNEL_DOMAIN` | `tunnel.nimbusgo.space` | Suffix tunnels are published under |
-| `TUNNEL_ADDR` | `:8090` | Listen address (plain HTTP; the edge terminates TLS) |
+| `TUNNEL_ADDR` | `:3000` | Listen address (plain HTTP; the edge terminates TLS) |
 | `NIMBUS_CLOUD_URL` | `https://nimbusgo.space` | Cloud that authorizes CLI tokens |
 
 `GET /healthz` returns `ok <active tunnels>`.
@@ -25,7 +25,7 @@ HTTP/1.1, server-sent events and WebSocket upgrades pass through. Every response
 ## Deploying on Coolify
 
 1. **DNS (Cloudflare, DNS-only / grey cloud):** `A tunnel -> server IP` and `A *.tunnel -> server IP`. Keep them unproxied: Cloudflare's free certificate does not cover a second-level wildcard, and proxying would time out long-lived tunnels.
-2. **Service:** new Dockerfile application from this repository, port `8090`, domains `https://tunnel.nimbusgo.space` and `https://*.tunnel.nimbusgo.space`, env `NIMBUS_CLOUD_URL=https://nimbusgo.space`.
+2. **Service:** new Dockerfile application from this repository, port `3000`, domains `https://tunnel.nimbusgo.space` and `https://*.tunnel.nimbusgo.space`, env `NIMBUS_CLOUD_URL=https://nimbusgo.space`.
 3. **Wildcard certificate:** Let's Encrypt issues `*.tunnel.nimbusgo.space` only through a DNS challenge. Give the Coolify proxy a Cloudflare API token (Zone → DNS → Edit on the zone) as `CF_DNS_API_TOKEN` and a resolver:
 
    ```yaml
@@ -54,8 +54,8 @@ Verify with `curl https://tunnel.nimbusgo.space/healthz`, then `nimbus login` an
 ## Running locally
 
 ```sh
-go run . # listens on :8090
-NIMBUS_TUNNEL_URL=http://localhost:8090 nimbus expose 3333
+go run . # listens on :3000
+NIMBUS_TUNNEL_URL=http://localhost:3000 nimbus expose 3333
 ```
 
-Local tunnels resolve only if `*.tunnel.nimbusgo.space` (or your `TUNNEL_DOMAIN`) points at your machine; for a quick check use `curl -H 'Host: <name>.tunnel.nimbusgo.space' http://localhost:8090/`.
+Local tunnels resolve only if `*.tunnel.nimbusgo.space` (or your `TUNNEL_DOMAIN`) points at your machine; for a quick check use `curl -H 'Host: <name>.tunnel.nimbusgo.space' http://localhost:3000/`.

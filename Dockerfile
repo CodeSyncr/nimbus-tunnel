@@ -8,6 +8,6 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /nimbus-tunnel .
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates
 COPY --from=build /nimbus-tunnel /usr/local/bin/nimbus-tunnel
-EXPOSE 8090
-ENV TUNNEL_ADDR=:8090
+EXPOSE 3000
+ENV TUNNEL_ADDR=:3000
 ENTRYPOINT ["nimbus-tunnel"]

@@ -5,7 +5,7 @@
 // Environment:
 //
 //	TUNNEL_DOMAIN     suffix for tunnels (default tunnel.nimbusgo.space)
-//	TUNNEL_ADDR       listen address (default :8090); TLS is the edge's job
+//	TUNNEL_ADDR       listen address (default :3000, Coolify's default port); TLS is the edge's job
 //	NIMBUS_CLOUD_URL  cloud base URL (default https://nimbusgo.space)
 package main
 
@@ -28,7 +28,7 @@ import (
 
 func main() {
 	domain := envOr("TUNNEL_DOMAIN", "tunnel.nimbusgo.space")
-	addr := envOr("TUNNEL_ADDR", ":8090")
+	addr := envOr("TUNNEL_ADDR", ":3000")
 	cloud := strings.TrimRight(envOr("NIMBUS_CLOUD_URL", "https://nimbusgo.space"), "/")
 
 	relay := tunnel.NewRelay(domain, cloudAuthorizer(cloud))
