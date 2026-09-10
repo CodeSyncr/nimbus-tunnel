@@ -1,8 +1,8 @@
 # Coolify → Servers → <server> → Proxy → Configuration
 #
-# This server runs Docker Swarm (Traefik's swarm provider, coolify-overlay
-# network, labels under deploy.labels), so this is that configuration plus
-# only the lines marked TUNNEL:
+# This server runs plain Docker (not Swarm): Coolify manages the "coolify"
+# bridge network and Traefik reads the docker provider. The configuration
+# below is that setup plus only the lines marked TUNNEL:
 #
 #   * a Cloudflare DNS-01 resolver — the only way Let's Encrypt issues the
 #     *.tunnel.nimbusgo.space wildcard certificate;
@@ -12,19 +12,24 @@
 # Replace REPLACE_WITH_CLOUDFLARE_TOKEN with an API token holding
 # Zone → DNS → Edit on the nimbusgo.space zone, save, then Restart Proxy.
 #
-# NOTE: no top-level "name:" key. `docker stack deploy` validates against the
-# Swarm compose schema, which rejects it ("additional property 'name' is not
-# allowed"). Everything else matches the server's working configuration.
+# Two keys are deliberately absent:
+#   * top-level "name:" — Coolify's schema rejects it ("additional property
+#     'name' is not allowed");
+#   * anything Swarm-shaped (coolify-overlay, providers.swarm, deploy.labels)
+#     — that template belongs to a Swarm server and fails here with
+#     "network coolify-overlay declared as external, but could not be found".
 networks:
-  coolify-overlay:
+  coolify:
     external: true
 services:
   traefik:
+    container_name: coolify-proxy
     image: 'traefik:v3.7'
+    restart: unless-stopped
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     networks:
-      - coolify-overlay
+      - coolify
     ports:
       - '80:80'
       - '443:443'
@@ -67,16 +72,12 @@ services:
       - '--certificatesresolvers.cloudflare.acme.email=alok@alok.digital'
       - '--certificatesresolvers.cloudflare.acme.storage=/traefik/acme-cloudflare.json'
       - '--api.insecure=false'
-      - '--providers.swarm.endpoint=unix:///var/run/docker.sock'
-      - '--providers.swarm.exposedbydefault=false'
-    deploy:
-      labels:
-        - traefik.enable=true
-        - traefik.http.routers.traefik.entrypoints=http
-        - traefik.http.routers.traefik.service=api@internal
-        - traefik.http.services.traefik.loadbalancer.server.port=8080
-        - coolify.managed=true
-        - coolify.proxy=true
-      placement:
-        constraints:
-          - node.role==manager
+      - '--providers.docker=true'
+      - '--providers.docker.exposedbydefault=false'
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik.entrypoints=http
+      - traefik.http.routers.traefik.service=api@internal
+      - traefik.http.services.traefik.loadbalancer.server.port=8080
+      - coolify.managed=true
+      - coolify.proxy=true

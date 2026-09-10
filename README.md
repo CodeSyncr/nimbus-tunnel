@@ -29,10 +29,11 @@ Ready-made configuration lives in [`deploy/`](deploy/):
 - [`deploy/coolify-proxy.yaml`](deploy/coolify-proxy.yaml): the server's Traefik proxy configuration (Servers → Proxy → Configuration) with a Cloudflare DNS-01 resolver for the wildcard certificate and no read timeout on long-lived connections. Paste your Cloudflare API token in place of `REPLACE_WITH_CLOUDFLARE_TOKEN`, save, restart the proxy.
 - [`deploy/coolify-labels.txt`](deploy/coolify-labels.txt): the container labels for the resource (replace the generated Traefik block; Coolify's `Host(\`*.…\`)` rule never matches and its resolver cannot issue wildcards).
 
-Both files target a Docker **Swarm** server (Traefik's swarm provider on the
-`coolify-overlay` network, service labels under `deploy.labels`). Neither file
-carries a top-level `name:` key: `docker stack deploy` validates against the
-Swarm compose schema, which rejects it.
+Both files target a plain Docker server: Traefik's docker provider on Coolify's
+`coolify` bridge network. Neither carries a top-level `name:` key, which
+Coolify's schema rejects. If your server is in Swarm mode instead, the network
+is `coolify-overlay`, the provider flags are `--providers.swarm.*`, and labels
+move under `deploy.labels` with `traefik.swarm.network`.
 
 Steps:
 

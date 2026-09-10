@@ -5,16 +5,15 @@
 # Host(`*.tunnel...`) never matches — Host() has no wildcards — and the
 # "letsencrypt" HTTP-challenge resolver cannot issue a wildcard certificate.
 #
-# This server runs Docker Swarm, so Traefik reads the swarm provider:
-# the network label is traefik.swarm.network (not traefik.docker.network),
-# and Coolify places these under the service's deploy.labels for you.
+# This server runs plain Docker (not Swarm), so the network label is
+# traefik.docker.network=coolify.
 #
 # Resource → Network: Ports Exposes = 3000, Port Mappings empty.
 # No gzip middleware: compression buffers streamed (SSE) responses.
 #
 # Rules use Traefik v3 regex syntax (this server runs v3.7).
 traefik.enable=true
-traefik.swarm.network=coolify-overlay
+traefik.docker.network=coolify
 traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
 traefik.http.routers.tunnel-http.entryPoints=http
 traefik.http.routers.tunnel-http.rule=Host(`tunnel.nimbusgo.space`) || HostRegexp(`^[a-z0-9-]+\.tunnel\.nimbusgo\.space$`)
