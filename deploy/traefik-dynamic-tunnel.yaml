@@ -49,4 +49,18 @@ http:
     nimbus-tunnel:
       loadBalancer:
         servers:
+          # Resolves through Docker's DNS on the "coolify" network. The name
+          # comes from the resource's Network Aliases field, which is applied
+          # when the container is CREATED — set it, then Redeploy (a restart
+          # is not enough). A 502 here means this name does not resolve.
           - url: 'http://nimbus-tunnel:3000'
+
+# Fallback if the alias cannot be made to work: delete the "services" block
+# above and point the routers at Coolify's own generated service instead,
+# which Traefik exposes for cross-provider reference with an @docker suffix:
+#
+#   service: 'https-1-edz622kulzgc2om9tq1f580j@docker'
+#
+# Find the exact name in the proxy logs (routerName=...@docker) or in the
+# Traefik dashboard. It is tied to the resource UUID and the order of its
+# Domains, so it changes if you add or remove a domain.
