@@ -1,0 +1,52 @@
+# Coolify → Servers → <server> → Proxy → Dynamic Configurations → + Add
+# Name it "nimbus-tunnel". The proxy already watches /traefik/dynamic/.
+#
+# Why a dynamic file instead of container labels: Coolify generates the
+# labels for a resource from its Domains field, and it regenerates them on
+# every deploy. For a domain containing "*" it emits
+#     Host(`*.tunnel.nimbusgo.space`)   with certresolver=letsencrypt
+# which cannot work twice over — Host() has no wildcard support, and the
+# letsencrypt resolver only has an HTTP challenge, so a wildcard fails with
+# "prober: could not determine solvers". This file is outside Coolify's
+# generator, so it survives deploys.
+#
+# Prerequisites:
+#   * proxy configured with the "cloudflare" DNS-01 resolver (see
+#     deploy/coolify-proxy.yaml);
+#   * the tunnel resource has Network Alias "nimbus-tunnel" so the service
+#     URL below stays valid across deploys (container names change);
+#   * the resource's Domains field lists ONLY https://tunnel.nimbusgo.space
+#     — remove the wildcard entry so Coolify stops generating the broken
+#     router and retrying ACME.
+http:
+  routers:
+    nimbus-tunnel-wildcard:
+      # Traefik v3 regex syntax; one label only, so a.b.tunnel... never matches.
+      rule: 'HostRegexp(`^[a-z0-9-]+\.tunnel\.nimbusgo\.space$`)'
+      entryPoints:
+        - https
+      service: nimbus-tunnel
+      # No middlewares: gzip would buffer streamed (SSE) responses.
+      tls:
+        certResolver: cloudflare
+        domains:
+          - main: 'tunnel.nimbusgo.space'
+            sans:
+              - '*.tunnel.nimbusgo.space'
+    nimbus-tunnel-wildcard-http:
+      rule: 'HostRegexp(`^[a-z0-9-]+\.tunnel\.nimbusgo\.space$`)'
+      entryPoints:
+        - http
+      service: nimbus-tunnel
+      middlewares:
+        - nimbus-tunnel-https
+  middlewares:
+    nimbus-tunnel-https:
+      redirectScheme:
+        scheme: https
+        permanent: false
+  services:
+    nimbus-tunnel:
+      loadBalancer:
+        servers:
+          - url: 'http://nimbus-tunnel:3000'

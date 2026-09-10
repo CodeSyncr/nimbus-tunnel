@@ -27,7 +27,8 @@ HTTP/1.1, server-sent events and WebSocket upgrades pass through. Every response
 Ready-made configuration lives in [`deploy/`](deploy/):
 
 - [`deploy/coolify-proxy.yaml`](deploy/coolify-proxy.yaml): the server's Traefik proxy configuration (Servers → Proxy → Configuration) with a Cloudflare DNS-01 resolver for the wildcard certificate and no read timeout on long-lived connections. Paste your Cloudflare API token in place of `REPLACE_WITH_CLOUDFLARE_TOKEN`, save, restart the proxy.
-- [`deploy/coolify-labels.txt`](deploy/coolify-labels.txt): the container labels for the resource (replace the generated Traefik block; Coolify's `Host(\`*.…\`)` rule never matches and its resolver cannot issue wildcards).
+- [`deploy/traefik-dynamic-tunnel.yaml`](deploy/traefik-dynamic-tunnel.yaml): the wildcard router as a Traefik dynamic configuration (Servers → Proxy → Dynamic Configurations). **Prefer this over container labels**: Coolify regenerates a resource's labels from its Domains field on every deploy, and for a wildcard domain it emits `Host(\`*.…\`)` with the HTTP-challenge resolver, which can never match or issue a certificate.
+- [`deploy/coolify-labels.txt`](deploy/coolify-labels.txt): the same routing as container labels, if you would rather keep it on the resource (replace the generated Traefik block; Coolify's `Host(\`*.…\`)` rule never matches and its resolver cannot issue wildcards).
 
 Both files target a plain Docker server: Traefik's docker provider on Coolify's
 `coolify` bridge network. Neither carries a top-level `name:` key, which
