@@ -6,7 +6,9 @@
 //
 //	TUNNEL_DOMAIN     suffix for tunnels (default tunnel.nimbusgo.space)
 //	TUNNEL_ADDR       listen address (default :3000, Coolify's default port); TLS is the edge's job
-//	NIMBUS_CLOUD_URL  cloud base URL (default https://nimbusgo.space)
+//	NIMBUS_CLOUD_URL  cloud base URL (default https://nimbusgo.space). Point it
+//	                  at Nimbus Cloud directly (its internal address) to keep
+//	                  the token check off the CDN.
 package main
 
 import (
@@ -74,6 +76,7 @@ func cloudAuthorizer(cloud string) tunnel.Authorizer {
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("Accept", "application/json")
+		req.Header.Set("User-Agent", userAgent)
 		resp, err := client.Do(req)
 		if err != nil {
 			return tunnel.Grant{}, err
@@ -87,6 +90,10 @@ func cloudAuthorizer(cloud string) tunnel.Authorizer {
 				return tunnel.Grant{}, fmt.Errorf("bad grant from cloud: %w", err)
 			}
 			return g, nil
+		case blockedByCDN(resp):
+			// Not a verdict on the token: the cloud never saw the request.
+			// Said plainly, so nobody chases a login that is fine.
+			return tunnel.Grant{}, errBlocked
 		case resp.StatusCode >= 400 && resp.StatusCode < 500:
 			// The cloud decides why an agent is refused — expired token,
 			// unpaid plan, a name another account holds — and the CLI shows
@@ -103,6 +110,25 @@ func cloudAuthorizer(cloud string) tunnel.Authorizer {
 			return tunnel.Grant{}, fmt.Errorf("cloud answered %s", resp.Status)
 		}
 	}
+}
+
+// userAgent names the relay to Nimbus Cloud's edge, for a firewall rule.
+const userAgent = "nimbus-tunnel/1.0 (+https://nimbusgo.space)"
+
+var errBlocked = errors.New("Cloudflare blocked the relay's token check before it reached Nimbus Cloud (bot protection on the relay server's address). Allow the relay server in Cloudflare or set NIMBUS_CLOUD_URL to Nimbus Cloud's internal address")
+
+// blockedByCDN spots Cloudflare answering for the cloud: a challenge or block
+// page (HTML, Cloudflare's marks) instead of the cloud's JSON.
+func blockedByCDN(resp *http.Response) bool {
+	if resp.StatusCode != http.StatusForbidden && resp.StatusCode != http.StatusServiceUnavailable && resp.StatusCode != http.StatusTooManyRequests {
+		return false
+	}
+	if resp.Header.Get("Cf-Mitigated") != "" {
+		return true
+	}
+	ct := strings.ToLower(resp.Header.Get("Content-Type"))
+	cf := resp.Header.Get("Cf-Ray") != "" || strings.Contains(strings.ToLower(resp.Header.Get("Server")), "cloudflare")
+	return cf && !strings.Contains(ct, "json")
 }
 
 func envOr(key, def string) string {
